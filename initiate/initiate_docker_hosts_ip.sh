@@ -5,7 +5,7 @@ update_hosts_file(){
 	docker_container=$1
 	if [ `docker ps | grep $docker_container | wc -l` -gt 0 ];then
 		sed -i "/$docker_container/d" /etc/hosts
-		IP=`docker inspect --format='{{ .NetworkSettings.Networks.mysqlbastion_default.IPAddress }}' $docker_container`
+		IP=`docker inspect --format='{{ .NetworkSettings.Networks.bastionproxy_default.IPAddress }}' $docker_container`
 		echo -e "$IP\t$docker_container" >> /etc/hosts	
 	fi
 }
