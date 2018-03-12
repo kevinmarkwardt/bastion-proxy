@@ -273,6 +273,8 @@ The url for the configuration below is if you are using the openldap docker inst
 
 You will also need to update the account that will be used to authenticate to LDAP using the binddn and bindpass
 
+Finally update the userdn and groupdn where the users and groups will be stored that Vault will need to authenticate with.
+
 ```bash
 vault auth-enable ldap
 
