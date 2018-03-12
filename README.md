@@ -130,10 +130,8 @@ Now that the base environment is configured with the necessary software, and the
 These configurations are required for the MySQL password sync script to function correctly.  At the top of that script these login paths are configured.  As you execute each command you will be prompted for the password that you setup for each in the last section.
 
 ```bash
-Configure ProxySQL Credentials
 mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
 
-Configure MySQL Local Remote User Credentials 
 mysql_config_editor set --login-path=mysql --host=mysql_local --user=<SYNC USERNAME GOES HERE> --password
 ```
 
@@ -152,7 +150,7 @@ CREATE DATABASE mysql_inventory;
 
 USE mysql_inventory;
 
-Create Table: CREATE TABLE `hosts` (
+CREATE TABLE `hosts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `host` varchar(255) DEFAULT NULL,
   `ip` varchar(45) DEFAULT NULL,
