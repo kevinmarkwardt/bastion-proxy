@@ -130,10 +130,8 @@ Now that the base environment is configured with the necessary software, and the
 These configurations are required for the MySQL password sync script to function correctly.  At the top of that script these login paths are configured.  As you execute each command you will be prompted for the password that you setup for each in the last section.
 
 ```bash
-Configure ProxySQL Credentials
 mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
 
-Configure MySQL Local Remote User Credentials 
 mysql_config_editor set --login-path=mysql --host=mysql_local --user=<SYNC USERNAME GOES HERE> --password
 ```
 
@@ -152,7 +150,7 @@ CREATE DATABASE mysql_inventory;
 
 USE mysql_inventory;
 
-Create Table: CREATE TABLE `hosts` (
+CREATE TABLE `hosts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `host` varchar(255) DEFAULT NULL,
   `ip` varchar(45) DEFAULT NULL,
@@ -186,10 +184,10 @@ In order to interact with vault you have to make sure that the two environment v
 export VAULT_ADDR=http://vault:9200
 ```
 
-VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.
+VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.  Remember your token was initially stored in /root/vault_details
 
 ```bash
-export VAULT_TOKEN=cb759b07-dfb6-c4fe-6835-4aa732c49c52
+export VAULT_TOKEN=<TOKEN>
 ```
 
 **Start on boot**
@@ -275,6 +273,8 @@ The url for the configuration below is if you are using the openldap docker inst
 
 You will also need to update the account that will be used to authenticate to LDAP using the binddn and bindpass
 
+Finally update the userdn and groupdn where the users and groups will be stored that Vault will need to authenticate with.
+
 ```bash
 vault auth-enable ldap
 
@@ -342,17 +342,23 @@ vault write auth/ldap/groups/<LDAP GROUP> policies=<POLICY NAME>
 examples:
 
 vault write auth/ldap/groups/prod_service_server1_ro policies=env_service_mysql_ro
-vault write auth/ldap/groups/prod_service_server1_ro policies=env_service_mysql_rw
+vault write auth/ldap/groups/prod_service_server1_rw policies=env_service_mysql_rw
 ```
 
-List Policies
+List Auth Group Mappings, and read the policies that it's associated to
 
 ```bash
-root@bastion:~/mysql-bastion# vault policies
-default
-env_service_mysql_ro
-env_service_mysql_rw
-root
+root@bastion:~/mysql-bastion# vault list auth/ldap/groups
+Keys
+----
+prod_service_server1_ro
+prod_service_server1_rw
+
+root@bastion:~/bastion-proxy# vault read auth/ldap/groups/prod_service_server1_ro
+Key     	Value
+---     	-----
+policies	[env_service_mysql_rw]
+
 ```
 
 ### OpenLDAP Config
