@@ -342,17 +342,23 @@ vault write auth/ldap/groups/<LDAP GROUP> policies=<POLICY NAME>
 examples:
 
 vault write auth/ldap/groups/prod_service_server1_ro policies=env_service_mysql_ro
-vault write auth/ldap/groups/prod_service_server1_ro policies=env_service_mysql_rw
+vault write auth/ldap/groups/prod_service_server1_rw policies=env_service_mysql_rw
 ```
 
-List Policies
+List Auth Group Mappings, and read the policies that it's associated to
 
 ```bash
-root@bastion:~/mysql-bastion# vault policies
-default
-env_service_mysql_ro
-env_service_mysql_rw
-root
+root@bastion:~/mysql-bastion# vault list auth/ldap/groups
+Keys
+----
+prod_service_server1_ro
+prod_service_server1_rw
+
+root@bastion:~/bastion-proxy# vault read auth/ldap/groups/prod_service_server1_ro
+Key     	Value
+---     	-----
+policies	[env_service_mysql_rw]
+
 ```
 
 ### OpenLDAP Config
