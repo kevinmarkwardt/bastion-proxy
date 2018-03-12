@@ -184,10 +184,10 @@ In order to interact with vault you have to make sure that the two environment v
 export VAULT_ADDR=http://vault:9200
 ```
 
-VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.
+VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.  Remember your token was initially stored in /root/vault_details
 
 ```bash
-export VAULT_TOKEN=cb759b07-dfb6-c4fe-6835-4aa732c49c52
+export VAULT_TOKEN=<TOKEN>
 ```
 
 **Start on boot**
