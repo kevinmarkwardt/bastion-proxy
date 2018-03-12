@@ -1,0 +1,96 @@
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars:
+    vault_ver: 0.7.0
+  tasks:
+    - name: Install SNMP (CentOS / Redhat)
+      yum: name={{ name }} state=latest
+      with_items:
+        - yum-utils
+        - device-mapper-persistent-data 
+        - lvm2
+        - openldap-clients
+        - unzip
+        - wget
+        - mysql
+      when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+    - name: Configure Docker Repo (CentOS / Redhat)
+      shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+      changed_when: False
+
+    - name: Install Docker (CentOS / Redhat)
+      yum: name={{ name }} state=latest
+      with_items:
+        - docker-ce
+      when: ansible_distribution == 'CentOS' or ansible_distribution == 'Red Hat Enterprise Linux'
+
+    - name: Install Base Software (Debian / Ubuntu)
+      apt: name={{ item }} state=latest
+      with_items:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - ldap-utils
+        - unzip
+        - wget
+        - mysql-client
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+    
+    - name: Configure Docker Repo (Debian / Ubuntu)
+      shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - ; apt-key fingerprint 0EBFCD88 ; add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'       
+      changed_when: False
+
+    - name: Update APT Packages List
+      apt: update_cache=yes
+
+    - name: Install Docker (Debian / Ubuntu)
+      apt: name={{ item }} state=latest
+      with_items:
+        - docker-ce
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+    - name: Enable Docker service
+      service: name=docker enabled=yes
+      notify: Restart Docker
+
+    - name: PIP install
+      easy_install:
+        name: pip
+        state: latest
+
+    - name: Docker Compose & Vault Ansible Modules Install (PIP)
+      pip: name={{ item }}
+      with_items:
+        - docker-compose
+        - ansible-modules-hashivault
+      
+    - name: Test Docker Compose
+      shell: docker-compose --version
+      register: result
+      changed_when: False
+
+    - name: Docker Compose Version Test
+      debug:
+        var: result
+
+    - name: Vault Install 
+      shell: wget -O /tmp/vault.zip "https://releases.hashicorp.com/vault/{{ vault_ver }}/vault_{{ vault_ver }}_linux_amd64.zip" ; unzip -d /bin /tmp/vault.zip ; chmod 755 /bin/vault ; rm /tmp/vault.zip
+      changed_when: False
+  
+    - name: Get Vault Version
+      shell: vault -v
+      register: vault_result
+
+    - name: Vault Version Result
+      debug:
+        var: vault_result
+    
+  handlers:
+    - name: Restart Docker
+      action: service name=docker state=restarted
+

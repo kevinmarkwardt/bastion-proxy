@@ -1,0 +1,71 @@
+version: '3'
+services:
+  mysql_local:
+    container_name: mysql_local
+    image: mysql
+    hostname: mysql_local
+    volumes:
+      - ./conf/mysql.cnf:/etc/my.cnf
+    ports: 
+      - "3301:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+  proxysql:
+    container_name: proxysql
+    image: dataindataout/docker-proxysql
+    hostname: proxysql
+    links:
+      - mysql_local
+    volumes:
+      - ./conf/proxysql.cnf:/etc/proxysql.cnf
+    environment:
+      - CLUSTER_NAME=test
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_PROXY_USER=root
+      - MYSQL_PROXY_PASSWORD=password
+      - DISCOVERY_SERVICE=false
+    expose:
+      - "6032"
+    ports:
+      - "6032:6032"
+      - "6033:6033"
+  openldap:
+    container_name: openldap
+    image: dataindataout/docker-openldap
+    hostname: ldap
+    ports:
+      - "389:389"
+      - "639:639"
+    environment:
+      - LDAP_ORGANISATION=proxysql
+      - LDAP_DOMAIN=proxysql.com
+      - LDAP_ADMIN_PASSWORD=password
+    tty: true
+    stdin_open: true
+    volumes:
+      - /var/lib/ldap
+      - /etc/ldap/slapd.d
+      - /container/service/slapd/assets/certs/
+  phpldapadmin:
+    image: dataindataout/docker-phpldapadmin
+    container_name: phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+      PHPLDAPADMIN_HTTPS=false:
+    ports:
+      - "8080:80"
+    depends_on:
+      - openldap
+  vault:
+    container_name: vault
+    hostname: vault
+    image: dataindataout/docker-vault
+    ports:
+      - "9200:8200"
+    volumes:
+      - ./conf/vault.hcl:/etc/vault.hcl
+    environment:
+      - VAULT_ADDR=http://vault:9200
+    command: "server -config=/etc/vault.hcl"
+    depends_on:
+         - mysql_local
