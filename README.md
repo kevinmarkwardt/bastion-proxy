@@ -231,25 +231,25 @@ Next is time to create the roles within vault where the user will request access
 vault write database/roles/service_ro_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statement="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
   creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
   
 vault write database/roles/service_rw_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statement="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
   creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
   
 vault write database/roles/service_ro_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statement="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
   creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
   
 vault write database/roles/service_rw_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statement="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
   creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
 ```
 
