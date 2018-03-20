@@ -243,11 +243,24 @@ In order to make the vault changes, you will have to make sure that the two envi
 
 First we need to configure the connectivity from Vault to the local mysql instance, so it can store the credneitals that are requested for MySQL.  Then the sync script will sync these credentials to ProxySQL and the MySQL server that the user is connecting to.  Make sure you update the code below with the "MySQL local root password" ROOT password that was changed previously.  First mount the database plugin, and then run configuration script
 
+For older MySQL version that require a shorter username, replace "mysql-database-plugin" with "mysql-legacy-database-plugin"
+
 ```bash
 vault mount database
 
 vault write database/config/mysql \
     plugin_name=mysql-database-plugin \
+    connection_url="root:<PASSWORD GOES HERE FOR ROOT>@tcp(mysql_local:3306)/" \
+    allowed_roles="*"
+```
+
+OLDER MySQL Versions with shorter username restrictions
+
+```bash
+vault mount database
+
+vault write database/config/mysql \
+    plugin_name=mysql-legacy-database-plugin \
     connection_url="root:<PASSWORD GOES HERE FOR ROOT>@tcp(mysql_local:3306)/" \
     allowed_roles="*"
 ```
