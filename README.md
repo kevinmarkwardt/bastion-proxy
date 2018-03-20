@@ -212,7 +212,7 @@ INSERT INTO hosts(host,ip,port) VALUES('server2.fqdn.com','192.168.0.21',3301);
 In order to interact with vault you have to make sure that the two environment variables have been exported for VAULT_ADDR and VAULT_TOKEN.  We can configure the VAULT_ADDR to be exported for the root user in /root/.bashrc and add the command to the bottom of the script.  Or you can run it manually each time.  
 
 ```bash
-export VAULT_ADDR=http://vault:9200
+echo "export VAULT_ADDR=http://vault:9200" >> /root/.bashrc
 ```
 
 VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.  Remember your token was initially stored in /root/vault_details
@@ -223,10 +223,12 @@ export VAULT_TOKEN=<TOKEN>
 
 **Start on boot**
 
-We will want to configure Docker and the sync script to start when the server is booted.  You will also want to update any IP changes of the docker instances into the hosts file.  You may have to change the path of the initiate_docker_hosts_ip.sh script to match the location that you download the GIT repository.
+We will want to configure Docker and the sync script to start when the server is booted.  You will also want to update any IP changes of the docker instances into the hosts file.  You may have to change the path of the initiate_docker_hosts_ip.sh script to match the location that you download the GIT repository.  You can add the following lines to /etc/rc.local
 
 The **mysql-proxy-credential-sync**
 ```bash
+vim /etc/rc.local
+
 docker start $(docker ps -a -q)
 sleep 5
 /root/mysql-bastion/initiate/initiate_docker_hosts_ip.sh
