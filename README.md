@@ -131,7 +131,6 @@ These configurations are required for the MySQL password sync script to function
 
 ```bash
 mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
-
 mysql_config_editor set --login-path=mysql --host=mysql_local --user=<SYNC USERNAME GOES HERE> --password
 ```
 
@@ -141,6 +140,38 @@ Once they are configured you can test them by logging in.
 mysql --login-path=proxysql
 mysql --login-path=mysql
 ```
+
+DEBUG ITEM: I found that some times after setting the mysql_config_editor and testing the connections, the host for proxysql gets mixed up with the local mysql host.  To fix just run the mysql_config_editor for ProxySQL again and then they both work fine.  Below is an example of the bug in mysql_config_editor.  Submitted it for a fix, https://bugs.mysql.com/bug.php?id=90142
+
+```bash
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
+Enter password:
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=mysql --host=mysql_local --user='remote-sync' --password
+Enter password:
+root@bastion::~/bastion-proxy/initiate# mysql --login-path=proxysql
+ERROR 2003 (HY000): Can't connect to MySQL server on 'mysql_local' (111)
+root@bastion:~/bastion-proxy/initiate# mysql --login-path=mysql
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 5.7.21 MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> exit
+Bye
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
+Enter password:
+WARNING : 'proxysql' path already exists and will be overwritten.
+ Continue? (Press y|Y for Yes, any other key for No) : y
+root@bastion:~/bastion-proxy/initiate#
+```
+
 Next create the database and hosts table to store the host information the sync script will use to get IP and port information for the hosts.  Without this the sync script will not work.
 
 ```bash
@@ -181,7 +212,7 @@ INSERT INTO hosts(host,ip,port) VALUES('server2.fqdn.com','192.168.0.21',3301);
 In order to interact with vault you have to make sure that the two environment variables have been exported for VAULT_ADDR and VAULT_TOKEN.  We can configure the VAULT_ADDR to be exported for the root user in /root/.bashrc and add the command to the bottom of the script.  Or you can run it manually each time.  
 
 ```bash
-export VAULT_ADDR=http://vault:9200
+echo "export VAULT_ADDR=http://vault:9200" >> /root/.bashrc
 ```
 
 VAULT_TOKEN should be stored like a password as it will grant anyone that has it full access to vault.  This shouldn't be configured to load automatically for security reasons.  It should be run each time an admin wants to login and configure Vault.  Remember your token was initially stored in /root/vault_details
@@ -192,10 +223,12 @@ export VAULT_TOKEN=<TOKEN>
 
 **Start on boot**
 
-We will want to configure Docker and the sync script to start when the server is booted.  You will also want to update any IP changes of the docker instances into the hosts file.  You may have to change the path of the initiate_docker_hosts_ip.sh script to match the location that you download the GIT repository.
+We will want to configure Docker and the sync script to start when the server is booted.  You will also want to update any IP changes of the docker instances into the hosts file.  You may have to change the path of the initiate_docker_hosts_ip.sh script to match the location that you download the GIT repository.  You can add the following lines to /etc/rc.local
 
 The **mysql-proxy-credential-sync**
 ```bash
+vim /etc/rc.local
+
 docker start $(docker ps -a -q)
 sleep 5
 /root/mysql-bastion/initiate/initiate_docker_hosts_ip.sh
@@ -210,6 +243,8 @@ In order to make the vault changes, you will have to make sure that the two envi
 
 First we need to configure the connectivity from Vault to the local mysql instance, so it can store the credneitals that are requested for MySQL.  Then the sync script will sync these credentials to ProxySQL and the MySQL server that the user is connecting to.  Make sure you update the code below with the "MySQL local root password" ROOT password that was changed previously.  First mount the database plugin, and then run configuration script
 
+For older MySQL version that require a shorter username, replace "mysql-database-plugin" with "mysql-legacy-database-plugin"
+
 ```bash
 vault mount database
 
@@ -219,38 +254,49 @@ vault write database/config/mysql \
     allowed_roles="*"
 ```
 
+**OLDER MySQL Versions** with shorter username restrictions.  If you decide to use the legacy database plugin, you will have to make sure you update the prefix in the mysql-proxy-credential-sync script as it's currently default set to v-ldap.  When using this plugin the prefix for the user accounts will start with v-serv
+
+```bash
+vault mount database
+
+vault write database/config/mysql \
+    plugin_name=mysql-legacy-database-plugin \
+    connection_url="root:<PASSWORD GOES HERE FOR ROOT>@tcp(mysql_local:3306)/" \
+    allowed_roles="*"
+```
+
 **Roles**
 
 Next is time to create the roles within vault where the user will request access to.  Below is an example of recreating two roles for a specific server.  The first role is a read only role for the server.  You will want to update the commands with the following information .  You will have to create roles that will fit your needs.  
 
 - **Role Name** :   In the below example it's service_ro_servername and service_rw_servername.  Update with what makes sense for your environment
-- **PROXYSQL_IP** : with the IP address of your Proxy SQL server.  This will help enforce that the connections to the database has to come from your bastion/proxy server.  If you want you can use "%" 
+- **MYSQL_SERVER_NAME** : Please uses the exact name or IP that was inserted into the mysql_inventory. If you use % as the MYSQL_SERVER_NAME, then you do NOT need the revocation_statements line for dropping the user.  
 - **TTL** : Update the time to live for the connections accordinly to how long you want the credentials to stay around.
 
 ```bash
 vault write database/roles/service_ro_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_rw_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_ro_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_rw_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
 ```
 
 List Roles
