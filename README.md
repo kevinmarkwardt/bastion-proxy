@@ -131,7 +131,6 @@ These configurations are required for the MySQL password sync script to function
 
 ```bash
 mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
-
 mysql_config_editor set --login-path=mysql --host=mysql_local --user=<SYNC USERNAME GOES HERE> --password
 ```
 
@@ -141,6 +140,38 @@ Once they are configured you can test them by logging in.
 mysql --login-path=proxysql
 mysql --login-path=mysql
 ```
+
+DEBUG ITEM: I found that some times after setting the mysql_config_editor and testing the connections, the host for proxysql gets mixed up with the local mysql host.  To fix just run the mysql_config_editor for ProxySQL again and then they both work fine.  Below is an example of the bug in mysql_config_editor.  Submitted it for a fix, https://bugs.mysql.com/bug.php?id=90142
+
+```bash
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
+Enter password:
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=mysql --host=mysql_local --user='remote-sync' --password
+Enter password:
+root@bastion::~/bastion-proxy/initiate# mysql --login-path=proxysql
+ERROR 2003 (HY000): Can't connect to MySQL server on 'mysql_local' (111)
+root@bastion:~/bastion-proxy/initiate# mysql --login-path=mysql
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 5.7.21 MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> exit
+Bye
+root@bastion::~/bastion-proxy/initiate# mysql_config_editor set --login-path=proxysql --host=proxysql --port=6032 --user=radminuser --password
+Enter password:
+WARNING : 'proxysql' path already exists and will be overwritten.
+ Continue? (Press y|Y for Yes, any other key for No) : y
+root@bastion:~/bastion-proxy/initiate#
+```
+
 Next create the database and hosts table to store the host information the sync script will use to get IP and port information for the hosts.  Without this the sync script will not work.
 
 ```bash
