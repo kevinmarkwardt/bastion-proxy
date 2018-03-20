@@ -257,33 +257,33 @@ vault write database/config/mysql \
 Next is time to create the roles within vault where the user will request access to.  Below is an example of recreating two roles for a specific server.  The first role is a read only role for the server.  You will want to update the commands with the following information .  You will have to create roles that will fit your needs.  
 
 - **Role Name** :   In the below example it's service_ro_servername and service_rw_servername.  Update with what makes sense for your environment
-- **PROXYSQL_IP** : with the IP address of your Proxy SQL server.  This will help enforce that the connections to the database has to come from your bastion/proxy server.  If you want you can use "%" 
+- **MYSQL_SERVER_NAME** : Please uses the exact name or IP that was inserted into the mysql_inventory. If you use % as the MYSQL_SERVER_NAME, then you do NOT need the revocation_statements line for dropping the user.  
 - **TTL** : Update the time to live for the connections accordinly to how long you want the credentials to stay around.
 
 ```bash
 vault write database/roles/service_ro_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_rw_server1 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_ro_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
   
 vault write database/roles/service_rw_server2 \
   db_name=mysql \
   default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_SERVER_NAME';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_SERVER_NAME' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_SERVER_NAME';"
+  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
+  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
 ```
 
 List Roles
