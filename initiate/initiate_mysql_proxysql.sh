@@ -27,8 +27,8 @@ docker exec -it mysql_local mysql -u root -ppassword -e "CREATE USER '$MYSQL_REM
 docker exec -it mysql_local mysql -u root -ppassword -e "GRANT ALL PRIVILEGES ON *.* TO '$MYSQL_REMOTE_SYNC'@'%' WITH GRANT OPTION"
 
 echo "Configuring MySQL root localhost password"
+docker exec -it mysql_local mysql -u root -ppassword -e "ALTER USER 'root'@'%' IDENTIFIED BY '$MYSQL_ROOT_PASS'"
 docker exec -it mysql_local mysql -u root -ppassword -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASS'"
-docker exec -it mysql_local mysql -u root -ppassword -e "FLUSH PRIVILEGES"
 
 echo ""
 echo "  You should now be able to login to Proxy SQL with the following command and your password: "
