@@ -254,7 +254,7 @@ vault write database/config/mysql \
     allowed_roles="*"
 ```
 
-OLDER MySQL Versions with shorter username restrictions
+**OLDER MySQL Versions** with shorter username restrictions.  If you decide to use the legacy database plugin, you will have to make sure you update the prefix in the mysql-proxy-credential-sync script as it's currently default set to v-ldap.  When using this plugin the prefix for the user accounts will start with v-serv
 
 ```bash
 vault mount database
