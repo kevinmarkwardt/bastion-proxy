@@ -61,7 +61,7 @@ services:
     hostname: vault
     image: dataindataout/docker-vault
     ports:
-      - "9200:8200"
+      - "9200:9200"
     volumes:
       - ./conf/vault.hcl:/etc/vault.hcl
     environment:
