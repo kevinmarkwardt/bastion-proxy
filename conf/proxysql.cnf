@@ -7,7 +7,6 @@ mysql_variables=
         default_query_delay=0
         default_query_timeout=10000
         poll_timeout=2000
-        interfaces="0.0.0.0:3306"
         default_schema="information_schema"
         stacksize=1048576
         connect_timeout_server=10000

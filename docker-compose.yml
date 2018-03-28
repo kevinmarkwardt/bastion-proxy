@@ -28,7 +28,7 @@ services:
       - "6032"
     ports:
       - "6032:6032"
-      - "6033:6033"
+      - "3306:6033"
   openldap:
     container_name: openldap
     image: dataindataout/docker-openldap
