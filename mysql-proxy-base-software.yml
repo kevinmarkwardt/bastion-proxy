@@ -1,8 +1,8 @@
 - hosts: 127.0.0.1
   connection: local
   become: yes
-  vars:
-    vault_ver: 0.9.6
+  vars_files:
+   - mysql-proxy-build-config.yml
   tasks:
     - name: Install SNMP (CentOS / Redhat)
       yum: name={{ name }} state=latest
@@ -78,8 +78,8 @@
       debug:
         var: result
 
-    - name: Vault Install 
-      shell: wget -O /tmp/vault.zip "https://releases.hashicorp.com/vault/{{ vault_ver }}/vault_{{ vault_ver }}_linux_amd64.zip" ; unzip -d /bin /tmp/vault.zip ; chmod 755 /bin/vault ; rm /tmp/vault.zip
+    - name: Vault {{ vault.version }} Install 
+      shell: wget -O /tmp/vault.zip "https://releases.hashicorp.com/vault/{{ vault.version }}/vault_{{ vault.version }}_linux_amd64.zip" ; unzip -d /bin /tmp/vault.zip ; chmod 755 /bin/vault ; rm /tmp/vault.zip
       changed_when: False
   
     - name: Get Vault Version

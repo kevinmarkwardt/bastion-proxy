@@ -1,0 +1,59 @@
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars:
+    - docker_instances: '' 
+  vars_files:
+    - mysql-proxy-build-config.yml
+  tasks:
+    - name: Check for Vault Docker Instance
+      set_fact:
+        docker_instances: "{{ docker_instances }} vault"
+      when: vault.docker_instance
+
+    - name: No Vault Docker.  Checking vault Connectivity
+      shell:
+      when: not vault.docker_instance
+
+    - name: Check for LDAP Docker Instance
+      set_fact:
+        docker_instances: "{{ docker_instances }} openldap phpldapadmin"
+      when: ldap.docker_instance
+
+    - name: No LDAP Docker.  Checking LDAP connectivity
+      shell:
+      when: not ldap.docker_instance
+
+    - name: Check for ProxySQL Instance
+      set_fact:
+        docker_instances: "{{ docker_instances }} proxysql"
+      when: proxysql.docker_instance
+
+    - name: No ProxySQL Docker.  Checking ProxySQL Connectivity
+      shell:
+      when: not mysql_inventory.docker_instance
+
+    - name: Check for MySQL Inventory Instance
+      set_fact:
+        docker_instances: "{{ docker_instances }} mysql_inventory"
+      when: mysql_inventory.docker_instance 
+
+    - name: No MySQL Invenotry Docker.  Checking MySQL Connectivity
+      shell:
+      when: not mysql_inventory.docker_instance
+
+
+    - name: Deploying these docker instances - {{ docker_instances }}
+      shell: docker-compose up -d {{ docker_instances }}
+      args:
+        chdir: "{{ repo_path }}"
+      when: vault.docker_instance
+
+    - name: Configure MySQL and ProxySQL credentials
+
+
+    - name:  
+  handlers:
+    - name: Restart Docker
+      action: service name=docker state=restarted
+   

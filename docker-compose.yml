@@ -67,5 +67,3 @@ services:
     environment:
       - VAULT_ADDR=http://vault:9200
     command: "server -config=/etc/vault.hcl"
-    depends_on:
-         - mysql_local
