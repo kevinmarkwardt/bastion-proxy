@@ -1,6 +1,6 @@
 ---
 
-# The configuration allows for you to turn of aspects of the build if you want to use your own setup.  Just set docker_instance to false and configure with the details of the component in your environment.
+# The configuration allows for you to turn on and off aspects of the build that you want to use.  Just set docker_instance to false and configure with the details of the component in your environment.
 # If the docker_instance is set to false, it will use the credentials to check for connectivity, on the manually configured hosts
 #
 # Ldap type is either 'Open' for OpenLDAP or 'AD' for Active Directory.  If using Active Directory, the docker_instance variable  has to be false
@@ -30,20 +30,20 @@ ldap: {
 proxysql: {
   docker_instance: true,
   host: proxysql,
+  admin_proxysql_port: 6032,
   proxysql_port: 3306,
-  admin_user: admin,
-  admin_pass: <adminpass>,
+  admin_pass: admin,
   remote_admin_user: radmin,
-  remote_admin_pass: <radminpass>
+  remote_admin_pass: radminpass
 }
 
-# MySQL Inventory Config
+# MySQL Inventory Config.  If not using a docker instance.  Make sure to manually create the inventory_user is preconfigured with All access and grant option.  Update the parameters with the inventory username and password.
 mysql_inventory: {
   docker_instance: true,
-  host: localhost,
-  mysql_port: 3306,
+  host: mysql_local,
+  mysql_port: 3301,
   user: root,
-  pass: mysql_inventory_password,
-  mysql_remote_user: remote_user,
-  mysql_remote_pass: <pass>
+  pass: password,
+  mysql_inventory_user: inventory_user,
+  mysql_inventory_pass: password
 }

@@ -6,42 +6,28 @@
   vars_files:
     - mysql-proxy-build-config.yml
   tasks:
+
+# Build Docker Instances
+
     - name: Check for Vault Docker Instance
       set_fact:
         docker_instances: "{{ docker_instances }} vault"
       when: vault.docker_instance
-
-    - name: No Vault Docker.  Checking vault Connectivity
-      shell:
-      when: not vault.docker_instance
 
     - name: Check for LDAP Docker Instance
       set_fact:
         docker_instances: "{{ docker_instances }} openldap phpldapadmin"
       when: ldap.docker_instance
 
-    - name: No LDAP Docker.  Checking LDAP connectivity
-      shell:
-      when: not ldap.docker_instance
-
     - name: Check for ProxySQL Instance
       set_fact:
         docker_instances: "{{ docker_instances }} proxysql"
       when: proxysql.docker_instance
 
-    - name: No ProxySQL Docker.  Checking ProxySQL Connectivity
-      shell:
-      when: not mysql_inventory.docker_instance
-
     - name: Check for MySQL Inventory Instance
       set_fact:
-        docker_instances: "{{ docker_instances }} mysql_inventory"
+        docker_instances: "{{ docker_instances }} mysql_local"
       when: mysql_inventory.docker_instance 
-
-    - name: No MySQL Invenotry Docker.  Checking MySQL Connectivity
-      shell:
-      when: not mysql_inventory.docker_instance
-
 
     - name: Deploying these docker instances - {{ docker_instances }}
       shell: docker-compose up -d {{ docker_instances }}
@@ -49,11 +35,103 @@
         chdir: "{{ repo_path }}"
       when: vault.docker_instance
 
+# Configure MySQL / ProxySQL configuration.  Will check for .my.cnf.  If it doesn't exist, then this is the first run.  If a docker instance was created.  Set the creds on it and update it's root password and create the remote user.
+# If no docker instance was created, then just create the .my.cnf and test connectivity and make sure the inventory user exists.  Dont use root for a custom mysql inventory server.
+
+    - name: Check if mysql inventory user my.cnf exists.
+      stat:
+        path: ~/.my.cnf
+      register: my_cnf_result
+
+    - name: Check if proxysql cnf exists.
+      stat:
+        path: ~/.proxysql.cnf
+      register: proxysql_cnf_result
+
+    - set_fact:
+        template_user: "{{ mysql_inventory.mysql_inventory_user }}"
+
+    - set_fact:
+        template_password: "{{ mysql_inventory.mysql_inventory_pass }}"
+
+    - name: .my.cnf doesn't exist.  Creating it
+      template:
+        src: "conf/client.my.cnf.j2"
+        dest: "~/.my.cnf"
+        owner: root
+        group: root
+        mode: 0600
+      when: my_cnf_result.stat.exists == False 
+
+    - set_fact:
+        template_user: "{{ proxysql.remote_admin_user }}"
+
+    - set_fact:
+        template_password: "{{ proxysql.remote_admin_pass }}"
+
+    - name: .proxysql.cnf doesn't exist.  Creating it
+      template:
+        src: "conf/client.my.cnf.j2"
+        dest: "~/.proxysql.cnf"
+        owner: root
+        group: root
+        mode: 0600
+      when: proxysql_cnf_result.stat.exists == False
+
+    - name: Create and configure inventory user in MySQL Local MySQL instance
+      shell: docker exec mysql_local mysql -u root -ppassword -e "CREATE USER '{{ mysql_inventory.mysql_inventory_user }}'@'%' IDENTIFIED BY '{{ mysql_inventory.mysql_inventory_pass }}'; GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_inventory.mysql_inventory_user }}'@'%' WITH GRANT OPTION"
+      when: mysql_inventory.docker_instance and my_cnf_result.stat.exists == False
+
+    - name: Configure MySQL root password
+      shell: docker exec mysql_local mysql -u root -ppassword -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_inventory.pass }}'; ALTER USER 'root'@'%' IDENTIFIED BY '{{ mysql_inventory.pass }}'"
+      when: mysql_inventory.docker_instance
+
+    - name: Configure ProxySQL remote admin password
+      shell: docker exec proxysql mysql -uadmin -padmin -h 127.0.0.1 -P6032 -e "UPDATE global_variables SET variable_value='admin:{{ proxysql.admin_pass }};{{ proxysql.remote_admin_user }}:{{ proxysql.remote_admin_pass }}' WHERE variable_name='admin-admin_credentials';LOAD ADMIN VARIABLES TO RUNTIME;SAVE ADMIN VARIABLES TO DISK;";
+      when: proxysql.docker_instance
+
+    - name: Test MySQL Inventory Connectivity
+      shell: mysql --defaults-file=~/.my.cnf -h{{ mysql_inventory.host }} -P{{ mysql_inventory.mysql_port }} -e "SELECT @@hostname"
+      register: mysql_connectivity_test
+
+    - name: Test ProxySQL Connectivity
+      shell: mysql --defaults-file=~/.proxysql.cnf -h{{ proxysql.host }} -P{{ mysql_inventory.mysql_port }} -e "SELECT @@hostname"
+      register: proxysql_connectivity_test
+
+# Check connectivity 
+
+
+# Check for and create mysql_inventory database
+
+
+# Setup and configure scripts and environment variables in rc.local and crontab
+
+
+# Setup and configure vault database and LDAP connectivity
+
+
+    - name: No Vault Docker.  Checking vault Connectivity
+      shell:
+      when: not vault.docker_instance
+
+    - name: No LDAP Docker.  Checking LDAP connectivity
+      shell:
+      when: not ldap.docker_instance
+
+    - name: No ProxySQL Docker.  Checking ProxySQL Connectivity
+      shell:
+      when: not mysql_inventory.docker_instance
+
+    - name: No MySQL Inventory Docker.  Checking MySQL Connectivity
+      shell:
+      when: not mysql_inventory.docker_instance
+
     - name: Configure MySQL and ProxySQL credentials
+      shell: 
+    
+    - name: Make sure mysql_inventory Database exists
+      mysql_db:
+        name: mysql_inventory
+        state: present
 
 
-    - name:  
-  handlers:
-    - name: Restart Docker
-      action: service name=docker state=restarted
-   
