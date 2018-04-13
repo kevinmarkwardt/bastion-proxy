@@ -1,6 +1,5 @@
 - hosts: 127.0.0.1
   connection: local
-  become: yes
   vars:
     - docker_instances: '' 
   vars_files:
@@ -34,6 +33,9 @@
       args:
         chdir: "{{ repo_path }}"
       when: vault.docker_instance
+
+    - name: Cofigure docker IP's into /etc/hosts
+      shell: initiate/initiate_docker_hosts_ip.sh
 
 # Configure MySQL / ProxySQL configuration.  Will check for .my.cnf.  If it doesn't exist, then this is the first run.  If a docker instance was created.  Set the creds on it and update it's root password and create the remote user.
 # If no docker instance was created, then just create the .my.cnf and test connectivity and make sure the inventory user exists.  Dont use root for a custom mysql inventory server.
@@ -90,48 +92,67 @@
       shell: docker exec proxysql mysql -uadmin -padmin -h 127.0.0.1 -P6032 -e "UPDATE global_variables SET variable_value='admin:{{ proxysql.admin_pass }};{{ proxysql.remote_admin_user }}:{{ proxysql.remote_admin_pass }}' WHERE variable_name='admin-admin_credentials';LOAD ADMIN VARIABLES TO RUNTIME;SAVE ADMIN VARIABLES TO DISK;";
       when: proxysql.docker_instance
 
+# Configure Vault Connection Parameters
+
+    - name: Set Export Vault Address in Root Login Script
+      lineinfile: 
+        dest: /root/.bashrc 
+        line: "export VAULT_ADDR=http://{{ vault.host }}:{{ vault.vault_port }}" 
+        insertafter: 'EOF' 
+        regexp: "^export VAULT_ADDR"
+        state: present
+
+    - name: Initialize Vault Instance, if it's local
+      shell: initiate/initiate_vault.sh 
+      when: vault.docker_instance
+
+    - name: Get token from new deployment
+      shell: cat /root/vault_details | grep Token | awk '{print $4}' 
+      when: vault.docker_instance
+      register: vault_token_output
+
+    - name: Get Token from Vault Initial deployment in /root/vault_details
+      set_fact:
+        vault_token: "{{ vault_token_output.stdout }}"
+      when: vault.docker_instance
+
+    - name: Get Token from config file
+      set_fact:
+        vault_token: "{{ vault.token }}"
+      when: not vault.docker_instance
+
+    - name: Set Export Vault Token in Root Login Script
+      lineinfile:
+        dest: /root/.bashrc
+        line: "export VAULT_TOKEN={{ vault_token }}"
+        insertafter: 'EOF'
+        regexp: "^export VAULT_TOKEN"
+        state: present
+
+    - name: Source the bashrc file, to load Environment Variables
+      shell: source /root/.bashrc
+      args:
+        executable: /bin/bash
+# Check connectivity
+
     - name: Test MySQL Inventory Connectivity
       shell: mysql --defaults-file=~/.my.cnf -h{{ mysql_inventory.host }} -P{{ mysql_inventory.mysql_port }} -e "SELECT @@hostname"
       register: mysql_connectivity_test
 
     - name: Test ProxySQL Connectivity
-      shell: mysql --defaults-file=~/.proxysql.cnf -h{{ proxysql.host }} -P{{ mysql_inventory.mysql_port }} -e "SELECT @@hostname"
+      shell: mysql --defaults-file=~/.proxysql.cnf -h{{ proxysql.host }} -P{{ proxysql.admin_proxysql_port }} -e "SELECT @@hostname"
       register: proxysql_connectivity_test
 
-# Check connectivity 
+    - name: Test Vault Connectivity
+      shell: vault status
+      register: vault_connectivity_test
 
+    - name: Test LDAP Connectivity
+      shell: ldap search
+      register: ldap_connectivity_test
 
 # Check for and create mysql_inventory database
-
+    
 
 # Setup and configure scripts and environment variables in rc.local and crontab
-
-
-# Setup and configure vault database and LDAP connectivity
-
-
-    - name: No Vault Docker.  Checking vault Connectivity
-      shell:
-      when: not vault.docker_instance
-
-    - name: No LDAP Docker.  Checking LDAP connectivity
-      shell:
-      when: not ldap.docker_instance
-
-    - name: No ProxySQL Docker.  Checking ProxySQL Connectivity
-      shell:
-      when: not mysql_inventory.docker_instance
-
-    - name: No MySQL Inventory Docker.  Checking MySQL Connectivity
-      shell:
-      when: not mysql_inventory.docker_instance
-
-    - name: Configure MySQL and ProxySQL credentials
-      shell: 
-    
-    - name: Make sure mysql_inventory Database exists
-      mysql_db:
-        name: mysql_inventory
-        state: present
-
 

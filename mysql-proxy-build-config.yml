@@ -9,12 +9,12 @@
 # Path where the GIT repo is located
 repo_path: /root/bastion-proxy/
 
-# Vault Config
+# Vault Config, configure the token if you set docker_instance to false and you are using your own Vault instance
 vault:  { 
   docker_instance: true,
   version: 0.9.6,
   host: vault,
-  vault_port: 9100,
+  vault_port: 9200,
   token: ''
 }
 
@@ -29,7 +29,7 @@ ldap: {
 # ProxySQL Config
 proxysql: {
   docker_instance: true,
-  host: proxysql,
+  host: 127.0.0.1,
   admin_proxysql_port: 6032,
   proxysql_port: 3306,
   admin_pass: admin,
@@ -40,7 +40,7 @@ proxysql: {
 # MySQL Inventory Config.  If not using a docker instance.  Make sure to manually create the inventory_user is preconfigured with All access and grant option.  Update the parameters with the inventory username and password.
 mysql_inventory: {
   docker_instance: true,
-  host: mysql_local,
+  host: 127.0.0.1,
   mysql_port: 3301,
   user: root,
   pass: password,
