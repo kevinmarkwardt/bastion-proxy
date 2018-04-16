@@ -93,11 +93,11 @@
       when: proxysql_cnf_result.stat.exists == False
 
     - name: Create and configure inventory user in MySQL Local MySQL instance
-      shell: docker exec mysql_local mysql -u root -ppassword -e "CREATE USER '{{ mysql_inventory.mysql_inventory_user }}'@'%' IDENTIFIED BY '{{ mysql_inventory.mysql_inventory_pass }}'; GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_inventory.mysql_inventory_user }}'@'%' WITH GRANT OPTION"
+      shell: docker exec mysql_local mysql -u root -pD0ckerpassw0rd -e "CREATE USER '{{ mysql_inventory.mysql_inventory_user }}'@'%' IDENTIFIED BY '{{ mysql_inventory.mysql_inventory_pass }}'; GRANT ALL PRIVILEGES ON *.* TO '{{ mysql_inventory.mysql_inventory_user }}'@'%' WITH GRANT OPTION"
       when: mysql_inventory.docker_instance and my_cnf_result.stat.exists == False
 
     - name: Configure MySQL root password
-      shell: docker exec mysql_local mysql -u root -ppassword -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_inventory.pass }}'; ALTER USER 'root'@'%' IDENTIFIED BY '{{ mysql_inventory.pass }}'"
+      shell: docker exec mysql_local mysql -u root -pD0ckerpassw0rd -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_inventory.pass }}'; ALTER USER 'root'@'%' IDENTIFIED BY '{{ mysql_inventory.pass }}'"
       when: mysql_inventory.docker_instance
 
     - name: Configure ProxySQL remote admin password
@@ -162,7 +162,10 @@
       register: proxysql_connectivity_test
 
     - name: Test Vault Connectivity
-      shell: vault status
+      shell: source /root/.bashrc; vault status
+      args:
+        executable: /bin/bash
+
       register: vault_connectivity_test
 
     - name: Test LDAP Connectivity
