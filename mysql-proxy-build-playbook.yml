@@ -148,7 +148,7 @@
       register: vault_connectivity_test
 
     - name: Test LDAP Connectivity
-      shell: ldap search
+      shell: ldapsearch -H ldap://{{ ldap.host }}:{{ ldap.ldap_port }} -x -D "{{ ldap.ldap_user }}" -w {{ ldap.ldap_pass }} -b "{{ ldap.ldap_base }}"
       register: ldap_connectivity_test
 
 # Check for and create mysql_inventory database

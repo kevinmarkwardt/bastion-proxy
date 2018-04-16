@@ -22,8 +22,11 @@ vault:  {
 ldap: {  
   docker_instance: true,
   ldap_type: Open,
-  host: ldap,
-  ldap_port: 385
+  host: openldap,
+  ldap_port: 389,
+  ldap_user: "cn=admin,dc=proxysql,dc=com",
+  ldap_pass: password,
+  ldap_base: "dc=proxysql,dc=com"
 }
 
 # ProxySQL Config
