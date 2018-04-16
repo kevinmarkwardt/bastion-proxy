@@ -56,6 +56,12 @@
     - set_fact:
         template_password: "{{ mysql_inventory.mysql_inventory_pass }}"
 
+    - set_fact:
+        template_host: "{{ mysql_inventory.host }}"
+
+    - set_fact:
+        template_port: "{{ mysql_inventory.mysql_port }}"
+
     - name: .my.cnf doesn't exist.  Creating it
       template:
         src: "conf/client.my.cnf.j2"
@@ -70,6 +76,12 @@
 
     - set_fact:
         template_password: "{{ proxysql.remote_admin_pass }}"
+
+    - set_fact:
+        template_host: "{{ proxysql.host }}"
+
+    - set_fact:
+        template_port: "{{ proxysql.admin_proxysql_port }}"
 
     - name: .proxysql.cnf doesn't exist.  Creating it
       template:
@@ -102,6 +114,11 @@
         regexp: "^export VAULT_ADDR"
         state: present
 
+    - name: Source the bashrc file, to load Environment Variables
+      shell: source /root/.bashrc
+      args:
+        executable: /bin/bash
+
     - name: Initialize Vault Instance, if it's local
       shell: initiate/initiate_vault.sh 
       when: vault.docker_instance
@@ -133,14 +150,15 @@
       shell: source /root/.bashrc
       args:
         executable: /bin/bash
+
 # Check connectivity
 
     - name: Test MySQL Inventory Connectivity
-      shell: mysql --defaults-file=~/.my.cnf -h{{ mysql_inventory.host }} -P{{ mysql_inventory.mysql_port }} -e "SELECT @@hostname"
+      shell: mysql --defaults-file=~/.my.cnf -e "SELECT @@hostname"
       register: mysql_connectivity_test
 
     - name: Test ProxySQL Connectivity
-      shell: mysql --defaults-file=~/.proxysql.cnf -h{{ proxysql.host }} -P{{ proxysql.admin_proxysql_port }} -e "SELECT @@hostname"
+      shell: mysql --defaults-file=~/.proxysql.cnf -e "SELECT @@hostname"
       register: proxysql_connectivity_test
 
     - name: Test Vault Connectivity
