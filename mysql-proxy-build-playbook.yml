@@ -98,11 +98,11 @@
 
     - name: Configure MySQL root password
       shell: docker exec mysql_local mysql -u root -pD0ckerpassw0rd -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_inventory.pass }}'; ALTER USER 'root'@'%' IDENTIFIED BY '{{ mysql_inventory.pass }}'"
-      when: mysql_inventory.docker_instance
+      when: mysql_inventory.docker_instance and my_cnf_result.stat.exists == False
 
     - name: Configure ProxySQL remote admin password
       shell: docker exec proxysql mysql -uadmin -padmin -h 127.0.0.1 -P6032 -e "UPDATE global_variables SET variable_value='admin:{{ proxysql.admin_pass }};{{ proxysql.remote_admin_user }}:{{ proxysql.remote_admin_pass }}' WHERE variable_name='admin-admin_credentials';LOAD ADMIN VARIABLES TO RUNTIME;SAVE ADMIN VARIABLES TO DISK;";
-      when: proxysql.docker_instance
+      when: proxysql.docker_instance and proxysql_cnf_result.stat.exists == False
 
 # Configure Vault Connection Parameters
 
@@ -162,9 +162,10 @@
       register: proxysql_connectivity_test
 
     - name: Test Vault Connectivity
-      shell: source /root/.bashrc; vault status
-      args:
-        executable: /bin/bash
+      shell: vault status
+      environment:
+        VAULT_TOKEN: "{{ vault_token }}"
+        VAULT_ADDR: "http://{{ vault.host }}:{{ vault.vault_port }}"
 
       register: vault_connectivity_test
 
