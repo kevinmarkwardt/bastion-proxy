@@ -97,6 +97,9 @@
       when: mysql_inventory.docker_instance and my_cnf_result.stat.exists == False
       retries: 5
       delay: 5
+      ignore_errors: yes
+      register: task_result
+      until: task_result.rc == 0
 
     - name: Configure MySQL root password
       shell: mysql -h {{ mysql_inventory.host }} -P{{ mysql_inventory.mysql_port }} -u root -pD0ckerpassw0rd -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ mysql_inventory.pass }}'; ALTER USER 'root'@'%' IDENTIFIED BY '{{ mysql_inventory.pass }}'"
