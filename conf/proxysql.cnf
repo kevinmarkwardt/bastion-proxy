@@ -16,6 +16,7 @@ mysql_variables=
         ping_timeout_server=200
         commands_stats=true
         sessions_sort=true
+	mysql-eventslog_filename=/var/local/queries.log
 }
 
 mysql_query_rules:
@@ -23,15 +24,8 @@ mysql_query_rules:
         {
                 rule_id=1
                 active=1
-                match_pattern="^SELECT .* FOR UPDATE$"
-                destination_hostgroup=0
-                apply=1
+                match_digest="."
+                log=1
+                apply=0
         },
-        {
-                rule_id=2
-                active=1
-                match_pattern="^SELECT"
-                destination_hostgroup=1
-                apply=1
-        }
  )

@@ -18,6 +18,7 @@ services:
       - mysql_local
     volumes:
       - ./conf/proxysql.cnf:/etc/proxysql.cnf
+      - ./logs/proxysql:/var/local
     environment:
       - CLUSTER_NAME=test
       - MYSQL_ROOT_PASSWORD=password
@@ -64,6 +65,7 @@ services:
       - "9200:9200"
     volumes:
       - ./conf/vault.hcl:/etc/vault.hcl
+      - ./logs/vault:/vault/logs
     environment:
       - VAULT_ADDR=http://vault:9200
     command: "server -config=/etc/vault.hcl"

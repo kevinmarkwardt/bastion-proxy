@@ -63,12 +63,12 @@
         name: pip
         state: latest
 
-    - name: Docker Compose & Vault Ansible Modules Install (PIP)
+    - name: Docker Compose, Python MySQL, and Vault Ansible Modules Install (PIP)
       pip: name={{ item }}
       with_items:
         - docker-compose
         - ansible-modules-hashivault
-      
+ 
     - name: Test Docker Compose
       shell: docker-compose --version
       register: result
