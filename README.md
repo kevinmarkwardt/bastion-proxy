@@ -1,4 +1,4 @@
-# Bastion Proxy
+# MySQL Bastion Proxy
 
 ## Overview
 
