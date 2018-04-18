@@ -37,6 +37,22 @@
     - name: Cofigure docker IP's into /etc/hosts
       shell: initiate/initiate_docker_hosts_ip.sh
 
+    - name: Configure docker instances to start on boot
+      lineinfile:
+        dest: /etc/rc.local
+        line: 'docker start $(docker ps -a -q); sleep 5'
+        insertbefore: 'exit 0'
+        regexp: "^docker"
+        state: present
+
+    - name: Configure docker instances to start on boot
+      lineinfile:
+        dest: /etc/rc.local
+        line: '/root/mysql-bastion/initiate/initiate_docker_hosts_ip.sh'
+        insertbefore: 'exit 0'
+        regexp: "^/root/mysql-bastion/initiate/initiate_docker_hosts_ip.sh"
+        state: present
+
 # Configure MySQL / ProxySQL configuration.  Will check for .my.cnf.  If it doesn't exist, then this is the first run.  If a docker instance was created.  Set the creds on it and update it's root password and create the remote user.
 # If no docker instance was created, then just create the .my.cnf and test connectivity and make sure the inventory user exists.  Dont use root for a custom mysql inventory server.
 
@@ -150,11 +166,6 @@
         insertafter: 'EOF'
         regexp: "^export VAULT_TOKEN"
         state: present
-
-    - name: Source the bashrc file, to load Environment Variables
-      shell: source /root/.bashrc
-      args:
-        executable: /bin/bash
 
 # Check connectivity
 
