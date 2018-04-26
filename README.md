@@ -10,9 +10,25 @@ This is a multi component solution that will use ProxySQL, LDAP, Vault, and MySQ
 - Query logging by user using ProxySQL
 - Access to MySQL through ProxySQL (No Direct access to the database servers)
 
+## How it works
+
+Here is an overview of how a fully built bastion/proxy works together to provide secure access to the MySQL servers.
+1. User uses vault client to authenticate to the vault server (On Bastion or Standalone)
+2. Vault used LDAP and validates the users credentials and returns to them a token
+3. Client uses token to request credentials for a MySQL server by reading a vault database policy
+4. Vault validates in LDAP that the user is allowed to get credentials for the role they requested
+5. Vault creates new credentials and places them in the mysql inventory server
+6. The sync script finds the new credentials and creates the accounts on the destination MySQL server
+7. The sync script updates ProxySQL with the user account that vault created and maps it to the MySQL server using host groups
+8. The user logins to ProxySQL using the credentials vault provides
+9. ProxySQL routes the connection for the specific user to the MySQL server
+10. After the timeframe has passed vault removes the MySQL user account from mysql inventory
+11. Sync script sees that the user account no longer exists and removes the account from the MySQL server and ProxySQL.
+
+
 ## Cloning the Repo
 
-There are some hard coded aspects that assume that the repo is cloned into the /root directory
+Clone the repo to /root
 
 ## Base Software 
 
@@ -55,282 +71,134 @@ ansible-playbook mysql-proxy-build-playbook.yml
 source /root/.bashrc
 ```
 
-## Configure Bastion
+## Validate Connectivity
 
-Finally the bastion needs to be update with the MySQL servers that it will be servicing.  Then Vault will need to be configured with the roles for the users to request credentials.
+Now the bastion components are built, you should now be able to login to the MySQL inventory server, ProxySQL, Vault and OpenLDAP.
 
-**Add MySQL Servers to the MySQL Inventory**
+**Testing MySQL Inventory Access**
 
-Login to the MySQL Inventory server and insert the MySQL servers that will be accessed with the Bastion
+You should be able to just type mysql on the command line which will use the ~/.my.cnf configuration file to login.  In the example below I logged in as as the inventory_user account, and show the database and table exists.
 
 ``` bash
-mysql
-USE mysql_inventory;
+root@bastion:~/bastion-proxy# mysql
 
-INSERT INTO hosts(host,ip) VALUES('server1.fqdn.com','192.168.0.20');
-INSERT INTO hosts(host,ip,port) VALUES('server2.fqdn.com','192.168.0.21',3301);
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 8
+Server version: 5.7.22 MySQL Community Server (GPL)
+
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> show grants;
++-----------------------------------------------------------------------+
+| Grants for inventory_user@%                                           |
++-----------------------------------------------------------------------+
+| GRANT ALL PRIVILEGES ON *.* TO 'inventory_user'@'%' WITH GRANT OPTION |
++-----------------------------------------------------------------------+
+1 row in set (0.00 sec)
+
+mysql> use mysql_inventory
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> show create table hosts\G
+*************************** 1. row ***************************
+       Table: hosts
+Create Table: CREATE TABLE `hosts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `host` varchar(255) DEFAULT NULL,
+  `ip` varchar(45) DEFAULT NULL,
+  `port` int(11) DEFAULT '3306',
+  `enabled` tinyint(4) DEFAULT '1',
+  `creds_created_count` int(11) DEFAULT '0',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+1 row in set (0.00 sec)
+
 ```
 
-!! The sync user will be used to access the local MySQL server as well as the remote MySQL servers that the credentials will sync to. You will need to create the sync user account on each MySQL server that requesting users will access from using the Bastion/Proxy server. Account should have full privileges with GRANT OPTION !!
+**Testing ProxySQL Access**
 
-**Create Vault Roles**
+``` bash
+root@bastion:~/bastion-proxy# mysql --defaults-file=~/.proxysql.cnf
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 5
+Server version: 5.5.30 (ProxySQL Admin Module)
 
-In order to make the vault changes, you will have to make sure that the two environment variables have been exported for VAULT_ADDR and VAULT_TOKEN, and that the vault is unsealed.  If you had to reboot and you need to unseal your vault, please see https://github.com/kevinmarkwardt/mysql-bastion/blob/master/docs/Vault.md
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
 
-**DB Config**
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
 
-First we need to configure the connectivity from Vault to the local mysql instance, so it can store the credneitals that are requested for MySQL.  Then the sync script will sync these credentials to ProxySQL and the MySQL server that the user is connecting to.  Make sure you update the code below with the "MySQL local root password" ROOT password that was changed previously.  First mount the database plugin, and then run configuration script
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
 
-For older MySQL version that require a shorter username, replace "mysql-database-plugin" with "mysql-legacy-database-plugin"
-
-```bash
-vault mount database
-
-vault write database/config/mysql \
-    plugin_name=mysql-database-plugin \
-    connection_url="root:<PASSWORD GOES HERE FOR ROOT>@tcp(mysql_local:3306)/" \
-    allowed_roles="*"
+mysql> show tables;
++--------------------------------------------+
+| tables                                     |
++--------------------------------------------+
+| global_variables                           |
+| mysql_collations                           |
+| mysql_group_replication_hostgroups         |
+| mysql_query_rules                          |
+| mysql_replication_hostgroups               |
+| mysql_servers                              |
+| mysql_users                                |
+| proxysql_servers                           |
+| runtime_checksums_values                   |
+| runtime_global_variables                   |
+| runtime_mysql_group_replication_hostgroups |
+| runtime_mysql_query_rules                  |
+| runtime_mysql_replication_hostgroups       |
+| runtime_mysql_servers                      |
+| runtime_mysql_users                        |
+| runtime_proxysql_servers                   |
+| runtime_scheduler                          |
+| scheduler                                  |
++--------------------------------------------+
+18 rows in set (0.00 sec)
 ```
 
-**OLDER MySQL Versions** with shorter username restrictions.  If you decide to use the legacy database plugin, you will have to make sure you update the prefix in the mysql-proxy-credential-sync script as it's currently default set to v-ldap.  When using this plugin the prefix for the user accounts will start with v-serv
+**Testing Vault Access**
 
-```bash
-vault mount database
+Make sure you have run 'source /root/.bashrc' to export the variables that Vault uses to login with.  Below shows that the vault is not sealed and it's possible to list the policies
 
-vault write database/config/mysql \
-    plugin_name=mysql-legacy-database-plugin \
-    connection_url="root:<PASSWORD GOES HERE FOR ROOT>@tcp(mysql_local:3306)/" \
-    allowed_roles="*"
-```
+``` bash
+root@bastion:~/bastion-proxy# vault status
+Key             Value
+---             -----
+Seal Type       shamir
+Sealed          false
+Total Shares    5
+Threshold       3
+Version         0.9.1
+Cluster Name    vault-cluster-42f88b39
+Cluster ID      769f9d92-3e75-87ef-f8da-8fcbbfb737da
+HA Enabled      false
 
-**Roles**
-
-Next is time to create the roles within vault where the user will request access to.  Below is an example of recreating two roles for a specific server.  The first role is a read only role for the server.  You will want to update the commands with the following information .  You will have to create roles that will fit your needs.  
-
-- **Role Name** :   In the below example it's service_ro_servername and service_rw_servername.  Update with what makes sense for your environment
-- **MYSQL_SERVER_NAME** : Please uses the exact name or IP that was inserted into the mysql_inventory. If you use % as the MYSQL_SERVER_NAME, then you do NOT need the revocation_statements line for dropping the user.  
-- **TTL** : Update the time to live for the connections accordinly to how long you want the credentials to stay around.
-
-```bash
-vault write database/roles/service_ro_server1 \
-  db_name=mysql \
-  default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
-  
-vault write database/roles/service_rw_server1 \
-  db_name=mysql \
-  default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
-  
-vault write database/roles/service_ro_server2 \
-  db_name=mysql \
-  default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT SELECT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
-  
-vault write database/roles/service_rw_server2 \
-  db_name=mysql \
-  default_ttl="1h" max_ttl="24h" \
-  revocation_statements="DROP USER '{{name}}'@'MYSQL_NAME_OR_IP';" \
-  creation_statements="CREATE USER '{{name}}'@'MYSQL_NAME_OR_IP' IDENTIFIED BY '{{password}}';GRANT INSERT ON *.* TO '{{name}}'@'MYSQL_NAME_OR_IP';"
-```
-
-List Roles
-
-```bash
-root@bastion:~/mysql-bastion# vault list database/roles
-Keys
-----
-service_ro_server1
-service_ro_server2
-service_rw_server1
-service_rw_server2
-```
-
-**LDAP Authentication**
-
-You can configure Vault to validate request authentication using LDAP.  The groupfilter and all configuration that were used are based upon OpenLDAP.  Some modifications may be needed if you are using Active Directory.  
-
-The url for the configuration below is if you are using the openldap docker instance.  If you are using a remote LDAP configuration, update the url accordingly.  
-
-You will also need to update the account that will be used to authenticate to LDAP using the binddn and bindpass
-
-Finally update the userdn and groupdn where the users and groups will be stored that Vault will need to authenticate with.
-
-```bash
-vault auth-enable ldap
-
-vault read auth/ldap/config
-
-vault write auth/ldap/config \
-  url="ldap://openldap" \
-  binddn="cn=admin,dc=proxysql,dc=com" \
-  bindpass="password" \
-  userdn="ou=users,dc=proxysql,dc=com" \
-  userattr="uid" \
-  groupdn="ou=groups,dc=proxysql,dc=com" \
-  groupattr="cn" \
-  groupfilter="(|(memberUid={{.Username}})(member={{.UserDN}})(uniqueMember={{.UserDN}}))" \
-  insecure_tls=true
-  
-vault read auth/ldap/config
-```
-
-**Policies**
-
-Finally the policies will need to be configured.  Policies tell vault who to allow access to read credentials from specific roles.  If you dont' configure policies then no one will have access to request credentials.  
-
-You can use wildcards to allow multiple roles to be associated to a single policy easier.  In the example below the database/* is given list permission, so that an end user can view the policies that are available.  But the user will only be able to request credentials from policies that they are granted access to.
-
-```bash
-vault policy-write env_service_mysql_ro -<<EOF
-path "database/creds/service_ro_*" {
-  capabilities = ["list", "read"]
-}
-
-path "database/*" {
-  capabilities = ["list"]
-}
-EOF
-
-vault policy-write env_service_mysql_rw -<<EOF
-path "database/creds/service_rw_*" {
-  capabilities = ["list", "read"]
-}
-
-path "database/*" {
-  capabilities = ["list"]
-}
-EOF
-```
-
-List Policies
-
-```bash
-root@bastion:~/mysql-bastion# vault policies
+root@bastion:~/bastion-proxy# vault policy list
 default
-env_service_mysql_ro
-env_service_mysql_rw
 root
 ```
 
-**LDAP Group Auth to Policy Commands**
+**OpenLDAP Config**
 
-These will map the LDAP group to the Vault Policy.  So users can be managed within LDAP.
-
-```bash
-vault write auth/ldap/groups/<LDAP GROUP> policies=<POLICY NAME>
-
-examples:
-
-vault write auth/ldap/groups/prod_service_server1_ro policies=env_service_mysql_ro
-vault write auth/ldap/groups/prod_service_server1_rw policies=env_service_mysql_rw
-```
-
-List Auth Group Mappings, and read the policies that it's associated to
-
-```bash
-root@bastion:~/mysql-bastion# vault list auth/ldap/groups
-Keys
-----
-prod_service_server1_ro
-prod_service_server1_rw
-
-root@bastion:~/bastion-proxy# vault read auth/ldap/groups/prod_service_server1_ro
-Key     	Value
----     	-----
-policies	[env_service_mysql_rw]
-
-```
-
-### OpenLDAP Config
-
-If you want to use the OpenLDAP docker instance that is part of the docker compose.  You can use a web browser to load the admin website to manage the OpenLDAP instance.  Launch a browswer and go to the IP of the server on port 8080.  
+If you want to use the OpenLDAP docker instance that is part of the docker compose.  You can use a web browser to load the admin website to manage the OpenLDAP instance.  This uses the application called PHP LDAP ADMIN (http://phpldapadmin.sourceforge.net/wiki/index.php/Main_Page).  Launch a browswer and go to the IP of the server on port 8080.  IP should be located in /etc/hosts
 
 http://192.168.0.54:8080/
-
-Once you load the page, you can login using the following credentials.  If you are wondering, yes you need to use the entire line cn=admin,dc=proxysql,dc=com as the username
 
 USER : cn=admin,dc=proxysql,dc=com 
 PASSWORD = password
   
-Once logged in you can create users and groups.
+Once logged in create users and groups that will be used for authentication.
 
-## Starting Sync Script
+## Configuration
 
-mysql-proxy-credential-sync is the script that will sync the credentials that Vault creates in the local MySQL instance to ProxySQL and the MySQL server where the user is trying to access.  
-
-- Make sure the MySQL configuration is complete with both of these logins working.
-mysql --defaults-file=~/.proxysql.cnf
-mysql --defaults-file=~/.my.cnf
-- Make sure the remote credentials have been created on the remote servers with full privileges with GRANT OPTION.
-- You can run the script on the command line to see the interaction it has and to trouble shoot any problems that it may encounter.  After that, it can set to start on server boot by placing it in /etc/rc.local
-
-## Using the Bastion/Proxy
-
-Now that everything should be configured you can use the following to use the environment.  The end user will need the Vault client and have it configured to point to the Bastion/Proxy server on port 9200 which is the listening port for Vault.  DO NOT put the Vault Token on the end user.  That is only used to administor the vault server.
-
-User Login to Vault using LDAP
-
-```bash
-
-vault auth -method=ldap username=kmark
-```
-
-Sample Output
-
-```bash
-root@bastion:/home/vagrant# vault auth -method=ldap username=kmark
-Password (will be hidden):
-Successfully authenticated! You are now logged in.
-The token below is already saved in the session. You do not
-need to "vault auth" again with the token.
-token: 0be2a158-52fd-9221-2742-b14dafe6f0fa
-token_duration: 2764800
-token_policies: [default env_service_mysql_rw]
-```
-
-Once the user is logged in and authenticated to Vault, they can list out the available roles.
-
-```bash
-vault list database/roles
-```
-
-Sample Output
-
-```bash
-root@bastion:/home/vagrant# vault list database/roles
-Keys
-----
-service_ro_server1
-service_ro_server2
-service_rw_server1
-service_rw_server2
-```
-
-Now the user can gain credentials to the server in the role by running the following command.  
-
-```bash
-vault read database/creds/<ROLE NAME>
-```
-
-Sample Output
-
-```bash
-root@bastion:/home/vagrant# vault read database/creds/service_rw_server1
-Key            	Value
----            	-----
-lease_id       	database/creds/service_rw_server1/60f02a51-e339-b2d2-47ac-d17aca87ade9
-lease_duration 	1h0m0s
-lease_renewable	true
-password       	A1a-252zu59q9qq84uw3
-username       	v-ldap-kmark-service_rw-7r2p05ww
-```
-
-With this example they will be granted a username and password that they can use any client to connect to the database server.  They will point their client at the bastion proxy server, with the username and password provided, and then they will be connected to the MySQL server they requested.
-
-## Manual Configuration
-
-https://github.com/kevinmarkwardt/bastion-proxy/blob/master/docs/Manual_Install.md
+Now that environment has been built.  It needs to be configured.
+https://github.com/kevinmarkwardt/bastion-proxy/blob/master/docs/Configuration.md
