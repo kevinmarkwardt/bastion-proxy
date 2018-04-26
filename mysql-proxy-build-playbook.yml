@@ -206,7 +206,7 @@
     - name: Create MySQL inventory table
       shell: mysql --defaults-file=~/.my.cnf mysql_inventory -e "CREATE TABLE IF NOT EXISTS hosts (id int(11) NOT NULL AUTO_INCREMENT, host varchar(255) DEFAULT NULL, ip varchar(45) DEFAULT NULL,port int(11) DEFAULT '3306', enabled tinyint(4) DEFAULT '1', creds_created_count int(11) DEFAULT '0',  PRIMARY KEY (id)) ENGINE=InnoDB DEFAULT CHARSET=latin1;"
 
-    - name: Check if proxysql cnf exists.
+    - name: Check if vault cnf exists.
       stat:
         path: ./logs/vault/vault_audit.log
       register: vault_log_result
@@ -218,16 +218,6 @@
         VAULT_ADDR: "http://{{ vault.host }}:{{ vault.vault_port }}"
       when: vault.docker_instance and not vault_log_result
 
-    - name: Enable ProxySQL logging
+    - name: Enable ProxySQL logging, on local instance
       shell: mysql --defaults-file=~/.proxysql.cnf -e "SET mysql-eventslog_filename='/var/local/queries.log';LOAD MYSQL VARIABLES TO RUNTIME;SAVE MYSQL VARIABLES TO DISK;"
       when: proxysql.docker_instance
-
-    - name: Configure Vault for MySQL Auth Creation
-      shell: vault secrets enable database;  
-      environment:
-        VAULT_TOKEN: "{{ vault_token }}"
-        VAULT_ADDR: "http://{{ vault.host }}:{{ vault.vault_port }}"
-
-    - name: Configure Vault for LDAP Auth verification
-
-

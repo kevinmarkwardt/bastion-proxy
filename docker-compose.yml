@@ -2,7 +2,7 @@ version: '3'
 services:
   mysql_local:
     container_name: mysql_local
-    image: mysql
+    image: mysql:5.7
     hostname: mysql_local
     volumes:
       - ./conf/mysql.cnf:/etc/my.cnf

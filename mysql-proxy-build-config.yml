@@ -42,11 +42,11 @@ proxysql: {
 
 # MySQL Inventory Config.  If not using a docker instance.  Make sure to manually create the inventory_user is preconfigured with All access and grant option.  Update the parameters with the inventory username and password.
 mysql_inventory: {
-  docker_instance: false,
-  mysql_host: "192.168.0.112",
-  mysql_port: 3306,
+  docker_instance: true,
+  mysql_host: "127.0.0.1",
+  mysql_port: 3301,
   user: root,
   pass: password,
   mysql_inventory_user: inventory_user,
-  mysql_inventory_pass: password
+  mysql_inventory_pass: inventory_password
 }
