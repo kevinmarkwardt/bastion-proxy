@@ -2,22 +2,13 @@
 
 ## Overview
 
-This is a multi stage solution that will use ProxySQL, LDAP, Vault, and MySQL to create a secure bastion that will provide a secure way to access your MySQL servers that addresses the following points of concern
+This is a multi component solution that will use ProxySQL, LDAP, Vault, and MySQL to create a bastion that will provide a secure way to access your MySQL servers that addresses the following points of concern
 
 - Central user management using LDAP
 - MySQL credentials are managed and secured using Vault
 - Temporary passwords limited by time using Vault
 - Query logging by user using ProxySQL
 - Access to MySQL through ProxySQL (No Direct access to the database servers)
-
-The following steps will need to be performed in order to get this functioning
-
-- Server to run the bastion on 
-- Download GIT repo to the server
-- Install Base software
-- Perform initial setup to get docker instances running and communicating 
-- Perform initial configuration to customize the environment to meet your needs
-- Start using
 
 ## Cloning the Repo
 
